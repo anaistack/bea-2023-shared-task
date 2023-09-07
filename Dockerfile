@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:18.04 as build
 
 SHELL ["/bin/bash", "-c"]
 
@@ -32,8 +32,18 @@ RUN apt update &&\
 COPY DialogRPT/restore/ensemble.yml DialogRPT/restore/*.pth /home/DialogRPT/restore/
 
 # copy the scripts to the home directory
-COPY __metrics.py __evaluate.py /home/
+COPY __metrics.py __evaluate.py run.py /home/
 
-# make a first run to install everything
+# make a first run to compile everything
 COPY answer.jsonl truth.jsonl /tmp/
-RUN python __evaluate.py /tmp/answer.jsonl /tmp/truth.jsonl -o scores.txt
+RUN python run.py /tmp/answer.jsonl /tmp/truth.jsonl -o /tmp/scores.txt &&\
+    rm __evaluate.py __metrics.py &&\
+    mv __pycache__/__evaluate.cpython-37.pyc __evaluate.pyc &&\
+    mv __pycache__/__metrics.cpython-37.pyc __metrics.pyc &&\
+    rm -r __pycache__
+
+FROM ubuntu:18.04
+ENV HOME="/home/"
+ENV PATH="${HOME}/miniconda3/bin:${PATH}"
+WORKDIR ${HOME}
+COPY --from=build /home /home
